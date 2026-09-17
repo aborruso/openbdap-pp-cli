@@ -90,6 +90,11 @@ func newScaricaCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("il portale ha risposto %s invece di CSV per il dataset %s: controlla l'identificativo", tipo, id)
 			}
 
+			// Con un formato macchina il CSV grezzo renderebbe l'output non
+			// parsabile: si scrive su file e si stampa una ricevuta.
+			if destinazione == "" && !wantsHumanTable(cmd.OutOrStdout(), flags) {
+				destinazione = id + ".csv"
+			}
 			destinatario := cmd.OutOrStdout()
 			var file *os.File
 			if destinazione != "" {
@@ -104,9 +109,20 @@ func newScaricaCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("scrittura del CSV: %w", err)
 			}
-			if destinazione != "" {
-				fmt.Fprintf(cmd.ErrOrStderr(), "scritti %d byte in %s\n", scritti, destinazione)
+			if destinazione == "" {
+				return nil
 			}
+			if err := file.Sync(); err != nil {
+				return err
+			}
+			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
+				return printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+					"dataset": id,
+					"file":    destinazione,
+					"byte":    scritti,
+				}, flags)
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "scritti %d byte in %s\n", scritti, destinazione)
 			return nil
 		},
 	}

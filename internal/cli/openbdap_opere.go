@@ -5,6 +5,7 @@ package cli
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -58,6 +59,28 @@ func newNovelCigCmd(flags *rootFlags) *cobra.Command {
 	})
 }
 
+// formatoCUP e formatoCIG: il CUP e' di 15 caratteri alfanumerici, il CIG di
+// 10. Controllarli qui evita di interrogare venti dataset per un refuso e
+// distingue un codice sbagliato da un codice che semplicemente non c'e'.
+var (
+	formatoCUP = regexp.MustCompile(`^[A-Z0-9]{15}$`)
+	formatoCIG = regexp.MustCompile(`^[A-Z0-9]{10}$`)
+)
+
+func controllaCodice(codice, etichetta string) error {
+	switch etichetta {
+	case "cup":
+		if !formatoCUP.MatchString(codice) {
+			return fmt.Errorf("%q non e' un CUP: servono 15 caratteri alfanumerici", codice)
+		}
+	case "cig":
+		if !formatoCIG.MatchString(codice) {
+			return fmt.Errorf("%q non e' un CIG: servono 10 caratteri alfanumerici", codice)
+		}
+	}
+	return nil
+}
+
 // ricercaMOP descrive una ricerca per codice nei dataset MOP.
 type ricercaMOP struct {
 	nome      string
@@ -91,6 +114,10 @@ func configuraRicercaMOP(cmd *cobra.Command, flags *rootFlags, r ricercaMOP) *co
 			return usageErr(fmt.Errorf("indica il codice %s da cercare", strings.ToUpper(r.etichetta)))
 		}
 		codice := strings.ToUpper(strings.TrimSpace(args[0]))
+		if err := controllaCodice(codice, r.etichetta); err != nil {
+			_ = cmd.Usage()
+			return usageErr(err)
+		}
 		elenco, ok, err := datasetLocali(cmd, dbPath)
 		if err != nil {
 			return err
@@ -114,7 +141,14 @@ func configuraRicercaMOP(cmd *cobra.Command, flags *rootFlags, r ricercaMOP) *co
 			bersagli = append(bersagli, datasetMOP(elenco, fam, regione)...)
 		}
 		if len(bersagli) == 0 {
-			return fmt.Errorf("nessun dataset MOP nell'archivio locale: lancia 'openbdap-pp-cli allinea'")
+			// Archivio presente ma senza i dataset che servono: e' lo stesso
+			// caso dell'archivio assente, non un errore del comando.
+			segnaOrigineLocale(flags)
+			return printJSONFiltered(cmd.OutOrStdout(), rispostaLocale{
+				Richiesta: codice,
+				Risultati: make([]esitoFamiglia, 0),
+				Nota:      notaArchivioVuoto,
+			}, flags)
 		}
 		c, err := flags.newClient()
 		if err != nil {
@@ -212,7 +246,13 @@ func newNovelOpereCmd(flags *rootFlags) *cobra.Command {
 			}
 			bersagli := datasetProgetti(elenco, regione)
 			if len(bersagli) == 0 {
-				return fmt.Errorf("nessun dataset dei progetti nell'archivio locale: lancia 'openbdap-pp-cli allinea'")
+				segnaOrigineLocale(flags)
+				return printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+					"codice_fiscale": strings.TrimSpace(cf),
+					"opere":          make([]map[string]any, 0),
+					"totale":         nil,
+					"nota":           notaArchivioVuoto,
+				}, flags)
 			}
 			c, err := flags.newClient()
 			if err != nil {

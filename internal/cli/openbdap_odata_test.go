@@ -115,3 +115,22 @@ func TestFiltroUguale(t *testing.T) {
 		t.Errorf("filtroUguale = %q", got)
 	}
 }
+
+func TestControllaCodice(t *testing.T) {
+	validi := map[string]string{"cup": "I77H11000120009", "cig": "57106934F1"}
+	for etichetta, codice := range validi {
+		if err := controllaCodice(codice, etichetta); err != nil {
+			t.Errorf("controllaCodice(%q,%q) = %v", codice, etichetta, err)
+		}
+	}
+	invalidi := map[string]string{"cup": "PIPPO", "cig": "123"}
+	for etichetta, codice := range invalidi {
+		if err := controllaCodice(codice, etichetta); err == nil {
+			t.Errorf("controllaCodice(%q,%q) doveva fallire", codice, etichetta)
+		}
+	}
+	// Un'etichetta sconosciuta non deve bloccare: nessun formato da imporre.
+	if err := controllaCodice("qualsiasi", "altro"); err != nil {
+		t.Errorf("etichetta sconosciuta = %v", err)
+	}
+}

@@ -48,6 +48,10 @@ func newNovelDossierCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("indica il CUP da approfondire"))
 			}
 			cup := strings.ToUpper(strings.TrimSpace(args[0]))
+			if err := controllaCodice(cup, "cup"); err != nil {
+				_ = cmd.Usage()
+				return usageErr(err)
+			}
 			elenco, ok, err := datasetLocali(cmd, dbPath)
 			if err != nil {
 				return err
@@ -72,7 +76,9 @@ func newNovelDossierCmd(flags *rootFlags) *cobra.Command {
 			// quindi basta una chiamata per sapere anche dove cercare il resto.
 			progetti := datasetProgetti(elenco, regione)
 			if len(progetti) == 0 {
-				return fmt.Errorf("nessun dataset dei progetti nell'archivio locale: lancia 'openbdap-pp-cli allinea'")
+				dossier.Nota = notaArchivioVuoto
+				segnaOrigineLocale(flags)
+				return printJSONFiltered(cmd.OutOrStdout(), dossier, flags)
 			}
 			for _, e := range cercaNeiMOP(ctx, c, progetti, "Codice CUP", cup, limite) {
 				if e.Errore != "" {

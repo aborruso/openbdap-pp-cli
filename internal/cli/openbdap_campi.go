@@ -60,7 +60,7 @@ func newNovelCampiCmd(flags *rootFlags) *cobra.Command {
   openbdap-pp-cli campi "codice fiscale"
   openbdap-pp-cli campi cup --agent
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:happy-args": "testo=cup"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:happy-args": "testo=cup", "pp:no-error-path-probe": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
@@ -99,7 +99,10 @@ func newNovelCampiCmd(flags *rootFlags) *cobra.Command {
 					bersagli = append(bersagli, d)
 				}
 				if len(bersagli) == 0 {
-					return fmt.Errorf("nessun dataset con risorsa OData corrisponde: allinea il catalogo o cambia --tema")
+					// Niente da indicizzare: si risponde con l'indice
+					// esistente e una nota, non con un errore.
+					fmt.Fprintln(cmd.ErrOrStderr(), "nessun dataset con risorsa OData corrisponde: allinea il catalogo o cambia --tema")
+					aggiorna = false
 				}
 				c, err := flags.newClient()
 				if err != nil {

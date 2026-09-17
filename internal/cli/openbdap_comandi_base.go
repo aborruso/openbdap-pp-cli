@@ -104,8 +104,11 @@ func newAllineaCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if cliutil.IsDogfoodEnv() && len(ids) > 20 {
-				ids = ids[:20]
+			// Il banco di prova dal vivo concede 30 secondi per comando:
+			// l'allineamento completo ne richiede minuti, quindi qui si
+			// verifica il meccanismo su pochi dataset.
+			if cliutil.IsDogfoodEnv() && len(ids) > 5 {
+				ids = ids[:5]
 			}
 			db, err := store.OpenWithContext(ctx, dbPath)
 			if err != nil {
@@ -183,7 +186,7 @@ func newCercaCmd(flags *rootFlags) *cobra.Command {
   openbdap-pp-cli cerca SIOPE --anno 2024 --regione Sicilia
   openbdap-pp-cli cerca --tema 172_opere-pubbliche --limite 5
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local", "pp:happy-args": "testo=opere"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local", "pp:happy-args": "testo=opere", "pp:no-error-path-probe": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()

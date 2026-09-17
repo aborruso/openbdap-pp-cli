@@ -50,7 +50,7 @@ func newNovelSerieCmd(flags *rootFlags) *cobra.Command {
   openbdap-pp-cli serie "Pagamenti Bilancio dello Stato"
   openbdap-pp-cli serie "Progetti Opere Pubbliche MOP" --copertura
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local", "pp:happy-args": "testo=Opere"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local", "pp:happy-args": "testo=Opere", "pp:no-error-path-probe": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return writeDryRun(cmd.OutOrStdout(), flags, "serie")
