@@ -52,7 +52,7 @@ func newScaricaCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("indica il dataset da scaricare"))
 			}
 			id := args[0]
-			if d, ok, err := risolviLocaleMorbido(cmd, flags, dbPath, args[0]); err != nil {
+			if d, ok, err := risolviLocaleMorbido(cmd, dbPath, args[0]); err != nil {
 				return err
 			} else if ok && d.ID != "" {
 				id = d.ID
@@ -65,7 +65,14 @@ func newScaricaCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			req.Header.Set("Accept", "text/csv")
-			client := &http.Client{Timeout: 0, Transport: http.DefaultTransport}
+			// Nessun timeout complessivo: i dump arrivano a centinaia di
+			// megabyte e --timeout, se impostato, vale per l'attesa delle
+			// intestazioni, non per l'intero trasferimento.
+			trasporto := http.DefaultTransport.(*http.Transport).Clone()
+			if flags.timeout > 0 {
+				trasporto.ResponseHeaderTimeout = flags.timeout
+			}
+			client := &http.Client{Transport: trasporto}
 			if cliutil.IsDogfoodEnv() {
 				client.Timeout = 20 * time.Second
 			}
@@ -76,6 +83,11 @@ func newScaricaCmd(flags *rootFlags) *cobra.Command {
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("il portale ha risposto %s per il dataset %s", resp.Status, id)
+			}
+			// Il portale risponde 200 con una pagina HTML quando l'id non
+			// esiste: senza questo controllo verrebbe scritta come se fosse CSV.
+			if tipo := resp.Header.Get("Content-Type"); tipo != "" && !strings.Contains(strings.ToLower(tipo), "csv") {
+				return fmt.Errorf("il portale ha risposto %s invece di CSV per il dataset %s: controlla l'identificativo", tipo, id)
 			}
 
 			destinatario := cmd.OutOrStdout()

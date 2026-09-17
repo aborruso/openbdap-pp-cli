@@ -81,6 +81,12 @@ func colonneDataset(ctx context.Context, c *client.Client, odataID string) ([]co
 // gia' offuscato e restituisce l'identificativo da mettere nella query.
 func risolviColonna(colonne []colonna, chiave string) (colonna, bool) {
 	k := normalizza(chiave)
+	// Senza questo controllo la ricerca parziale piu' sotto accetterebbe la
+	// stringa vuota, che e' contenuta in qualsiasi nome: '--dove "=valore"'
+	// finirebbe per filtrare sulla prima colonna del dataset.
+	if k == "" {
+		return colonna{}, false
+	}
 	for _, c := range colonne {
 		if normalizza(c.ID) == k || normalizza(c.NomeFisico) == k || normalizza(c.Nome) == k {
 			return c, true
@@ -92,6 +98,12 @@ func risolviColonna(colonne []colonna, chiave string) (colonna, bool) {
 		}
 	}
 	return colonna{}, false
+}
+
+// filtroUguale costruisce una condizione di uguaglianza OData. L'apostrofo va
+// raddoppiato: altrimenti chiude la stringa e il servizio rifiuta la query.
+func filtroUguale(idColonna, valore string) string {
+	return fmt.Sprintf("%s eq '%s'", idColonna, strings.ReplaceAll(valore, "'", "''"))
 }
 
 // costruisciFiltro traduce le condizioni "campo=valore" in un filtro OData,
@@ -112,19 +124,33 @@ func costruisciFiltro(colonne []colonna, condizioni []string) (string, error) {
 		if len(pezzi) != 2 {
 			return "", fmt.Errorf("condizione %q non valida: usare campo=valore oppure campo~testo", cond)
 		}
+		if strings.TrimSpace(pezzi[0]) == "" {
+			return "", fmt.Errorf("condizione %q non valida: manca il nome della colonna", cond)
+		}
 		col, ok := risolviColonna(colonne, pezzi[0])
 		if !ok {
 			return "", fmt.Errorf("colonna %q non trovata: usa 'colonne <dataset>' per vedere i nomi disponibili", pezzi[0])
 		}
-		valore := strings.Trim(strings.TrimSpace(pezzi[1]), `"'`)
-		valore = strings.ReplaceAll(valore, "'", "''")
+		valore := scartaVirgolette(strings.TrimSpace(pezzi[1]))
 		if sep == "~" {
-			parti = append(parti, fmt.Sprintf("substringof('%s',%s)", valore, col.ID))
+			parti = append(parti, fmt.Sprintf("substringof('%s',%s)", strings.ReplaceAll(valore, "'", "''"), col.ID))
 			continue
 		}
-		parti = append(parti, fmt.Sprintf("%s eq '%s'", col.ID, valore))
+		parti = append(parti, filtroUguale(col.ID, valore))
 	}
 	return strings.Join(parti, " and "), nil
+}
+
+// scartaVirgolette toglie una sola coppia di virgolette o apici che racchiuda
+// il valore. Trim toglierebbe anche l'apostrofo finale di un valore legittimo.
+func scartaVirgolette(valore string) string {
+	if len(valore) >= 2 {
+		primo, ultimo := valore[0], valore[len(valore)-1]
+		if (primo == '"' && ultimo == '"') || (primo == '\'' && ultimo == '\'') {
+			return valore[1 : len(valore)-1]
+		}
+	}
+	return valore
 }
 
 // righeDataset legge una pagina di righe e le restituisce con i nomi di colonna
@@ -140,6 +166,9 @@ func righeDataset(ctx context.Context, c *client.Client, odataID string, colonne
 	if len(campi) > 0 {
 		var ids []string
 		for _, campo := range campi {
+			if strings.TrimSpace(campo) == "" {
+				return nil, fmt.Errorf("elenco dei campi non valido: c'e' un nome vuoto")
+			}
 			col, ok := risolviColonna(colonne, campo)
 			if !ok {
 				return nil, fmt.Errorf("colonna %q non trovata: usa 'colonne <dataset>' per vedere i nomi disponibili", campo)
@@ -204,7 +233,9 @@ func contaRighe(ctx context.Context, c *client.Client, odataID, filtro string) (
 		return 0, fmt.Errorf("lettura del conteggio di %s: %w", odataID, err)
 	}
 	if len(risposta.D.Results) == 0 {
-		return 0, nil
+		// Una query valida restituisce sempre una riga con Tot, anche quando
+		// il conteggio e' zero: nessuna riga significa filtro rifiutato.
+		return 0, fmt.Errorf("il servizio non ha restituito un conteggio per %s: il filtro e' stato rifiutato", odataID)
 	}
 	n, err := risposta.D.Results[0].Tot.Int64()
 	if err != nil {

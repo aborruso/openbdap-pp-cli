@@ -49,10 +49,10 @@ func newNovelCigCmd(flags *rootFlags) *cobra.Command {
 		lungo:   "Cerca il CIG nei dataset delle gare e dei partecipanti, che sono pubblicati per regione.\nUsa questo comando per una gara dal CIG. NON usarlo per cercare un progetto dal CUP; usa 'cup' o 'dossier'.",
 		colonna: "Codice CIG",
 		esempio: strings.Trim(`
-  openbdap-pp-cli cig 12345678AB --regione Sicilia
-  openbdap-pp-cli cig 12345678AB --agent
+  openbdap-pp-cli cig 57106934F1 --regione Sicilia
+  openbdap-pp-cli cig 57106934F1 --agent
 `, "\n"),
-		happy:     "cig=12345678AB",
+		happy:     "cig=57106934F1",
 		famiglie:  []string{"gare", "partecipanti"},
 		etichetta: "cig",
 	})
@@ -91,13 +91,14 @@ func configuraRicercaMOP(cmd *cobra.Command, flags *rootFlags, r ricercaMOP) *co
 			return usageErr(fmt.Errorf("indica il codice %s da cercare", strings.ToUpper(r.etichetta)))
 		}
 		codice := strings.ToUpper(strings.TrimSpace(args[0]))
-		elenco, ok, err := datasetLocali(cmd, flags, dbPath)
+		elenco, ok, err := datasetLocali(cmd, dbPath)
 		if err != nil {
 			return err
 		}
 		if !ok {
 			// L'avviso sullo standard error non basta: chi legge solo lo
 			// standard output vedrebbe "nessun risultato" come un fatto.
+			segnaOrigineLocale(flags)
 			return printJSONFiltered(cmd.OutOrStdout(), rispostaLocale{
 				Richiesta: codice,
 				Risultati: make([]esitoFamiglia, 0),
@@ -140,7 +141,13 @@ func configuraRicercaMOP(cmd *cobra.Command, flags *rootFlags, r ricercaMOP) *co
 			fmt.Fprintf(cmd.ErrOrStderr(), "attenzione: %d dataset su %d non hanno risposto; il risultato e' parziale\n", falliti, len(esiti))
 		}
 		if !wantsHumanTable(cmd.OutOrStdout(), flags) {
-			return printJSONFiltered(cmd.OutOrStdout(), risultati, flags)
+			// Stesso involucro sia con risultati sia senza: cambiare forma a
+			// seconda dell'esito costringe chi legge a gestire due casi.
+			risposta := rispostaLocale{Richiesta: codice, Risultati: risultati, Trovati: trovate}
+			if trovate == 0 {
+				risposta.Nota = fmt.Sprintf("nessun risultato per %s nei %d dataset interrogati", codice, len(esiti))
+			}
+			return printJSONFiltered(cmd.OutOrStdout(), risposta, flags)
 		}
 		if trovate == 0 {
 			fmt.Fprintf(cmd.OutOrStdout(), "Nessun risultato per %s %s nei dataset interrogati (%d).\n", strings.ToUpper(r.etichetta), codice, len(esiti))
@@ -190,11 +197,12 @@ func newNovelOpereCmd(flags *rootFlags) *cobra.Command {
 				_ = cmd.Usage()
 				return usageErr(fmt.Errorf("--cf e' obbligatorio: indica il codice fiscale del soggetto titolare"))
 			}
-			elenco, ok, err := datasetLocali(cmd, flags, dbPath)
+			elenco, ok, err := datasetLocali(cmd, dbPath)
 			if err != nil {
 				return err
 			}
 			if !ok {
+				segnaOrigineLocale(flags)
 				return printJSONFiltered(cmd.OutOrStdout(), map[string]any{
 					"codice_fiscale": strings.TrimSpace(cf),
 					"opere":          make([]map[string]any, 0),
@@ -212,23 +220,23 @@ func newNovelOpereCmd(flags *rootFlags) *cobra.Command {
 			}
 			ctx := cmd.Context()
 			totale := 0
-			var falliti int
+			problemi := make([]string, 0)
 			righe := make([]map[string]any, 0)
 			for _, d := range bersagli {
 				colonne, err := colonneDataset(ctx, c, d.ODataID)
 				if err != nil {
-					falliti++
+					problemi = append(problemi, fmt.Sprintf("%s: %v", d.Titolo, err))
 					continue
 				}
 				col, ok := risolviColonna(colonne, "Codice Fiscale Titolare")
 				if !ok {
-					falliti++
+					problemi = append(problemi, fmt.Sprintf("%s: colonna \"Codice Fiscale Titolare\" assente", d.Titolo))
 					continue
 				}
-				filtro := fmt.Sprintf("%s eq '%s'", col.ID, strings.ReplaceAll(strings.TrimSpace(cf), "'", "''"))
+				filtro := filtroUguale(col.ID, strings.TrimSpace(cf))
 				n, err := contaRighe(ctx, c, d.ODataID, filtro)
 				if err != nil {
-					falliti++
+					problemi = append(problemi, fmt.Sprintf("%s: %v", d.Titolo, err))
 					continue
 				}
 				totale += n
@@ -237,7 +245,7 @@ func newNovelOpereCmd(flags *rootFlags) *cobra.Command {
 				}
 				blocco, err := righeDataset(ctx, c, d.ODataID, colonne, filtro, nil, limite, 0)
 				if err != nil {
-					falliti++
+					problemi = append(problemi, fmt.Sprintf("%s: %v", d.Titolo, err))
 					continue
 				}
 				for _, riga := range blocco {
@@ -248,15 +256,19 @@ func newNovelOpereCmd(flags *rootFlags) *cobra.Command {
 					righe = append(righe, voce)
 				}
 			}
-			if falliti > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "attenzione: %d dataset su %d non hanno risposto; il totale e' calcolato sui restanti\n", falliti, len(bersagli))
+			if len(problemi) > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "attenzione: %d dataset su %d non hanno risposto; il totale e' calcolato sui restanti\n", len(problemi), len(bersagli))
 			}
 			esito := map[string]any{
-				"codice_fiscale":          strings.TrimSpace(cf),
-				"totale":                  totale,
-				"dataset_interrogati":     len(bersagli),
-				"dataset_non_rispondenti": falliti,
-				"opere":                   righe,
+				"codice_fiscale":      strings.TrimSpace(cf),
+				"totale":              totale,
+				"dataset_interrogati": len(bersagli),
+				"opere":               righe,
+			}
+			// L'elenco degli errori resta nella risposta: sapere quanti
+			// dataset non hanno risposto senza sapere perche' non aiuta.
+			if len(problemi) > 0 {
+				esito["dataset_non_rispondenti"] = problemi
 			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), esito, flags)

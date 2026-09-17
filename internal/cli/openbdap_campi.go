@@ -68,11 +68,13 @@ func newNovelCampiCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return writeDryRun(cmd.OutOrStdout(), flags, "campi")
 			}
-			db, ok, err := apriStore(cmd, flags, dbPath)
+			segnaOrigineLocale(flags)
+			db, ok, err := apriStore(cmd, dbPath)
 			if err != nil {
 				return err
 			}
 			if !ok {
+				segnaOrigineLocale(flags)
 				return printJSONFiltered(cmd.OutOrStdout(), rispostaLocale{
 					Richiesta: strings.Join(args, " "),
 					Risultati: make([]campoTrovato, 0),

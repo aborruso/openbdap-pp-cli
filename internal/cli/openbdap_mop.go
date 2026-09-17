@@ -47,7 +47,8 @@ func newNovelMopCmd(flags *rootFlags) *cobra.Command {
 			if flags.dataSource == "live" {
 				return usageErr(fmt.Errorf("'mop' legge solo l'archivio locale: allinea il catalogo con 'openbdap-pp-cli allinea'"))
 			}
-			elenco, ok, err := datasetLocali(cmd, flags, dbPath)
+			segnaOrigineLocale(flags)
+			elenco, ok, err := datasetLocali(cmd, dbPath)
 			if err != nil {
 				return err
 			}
@@ -126,7 +127,7 @@ func cercaNeiMOP(ctx context.Context, c *client.Client, datasets []dataset, nome
 				esiti[i] = e
 				return
 			}
-			filtro := fmt.Sprintf("%s eq '%s'", col.ID, strings.ReplaceAll(valore, "'", "''"))
+			filtro := filtroUguale(col.ID, valore)
 			righe, err := righeDataset(ctx, c, d.ODataID, colonne, filtro, nil, limite, 0)
 			if err != nil {
 				e.Errore = err.Error()

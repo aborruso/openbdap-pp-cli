@@ -18,6 +18,7 @@ type dossierProgetto struct {
 	Sezioni  map[string][]map[string]any `json:"sezioni"`
 	Mancanti []string                    `json:"sezioni_non_disponibili,omitempty"`
 	Nota     string                      `json:"nota,omitempty"`
+	Dedotta  bool                        `json:"regione_dedotta,omitempty"`
 }
 
 func newNovelDossierCmd(flags *rootFlags) *cobra.Command {
@@ -47,7 +48,7 @@ func newNovelDossierCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("indica il CUP da approfondire"))
 			}
 			cup := strings.ToUpper(strings.TrimSpace(args[0]))
-			elenco, ok, err := datasetLocali(cmd, flags, dbPath)
+			elenco, ok, err := datasetLocali(cmd, dbPath)
 			if err != nil {
 				return err
 			}
@@ -58,6 +59,7 @@ func newNovelDossierCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !ok {
 				dossier.Nota = notaArchivioVuoto
+				segnaOrigineLocale(flags)
 				return printJSONFiltered(cmd.OutOrStdout(), dossier, flags)
 			}
 			c, err := flags.newClient()
@@ -78,7 +80,7 @@ func newNovelDossierCmd(flags *rootFlags) *cobra.Command {
 					continue
 				}
 				dossier.Progetto = append(dossier.Progetto, e.Righe...)
-				if len(e.Righe) > 0 && e.Regione != "" && e.Regione != "Totale" {
+				if len(e.Righe) > 0 && e.Regione != "" && !regioneAggregata(e.Regione) {
 					dossier.Regione = e.Regione
 				}
 			}
@@ -97,7 +99,14 @@ func newNovelDossierCmd(flags *rootFlags) *cobra.Command {
 				regioneRicerca = dossier.Regione
 			}
 			if regioneRicerca == "" {
-				regioneRicerca = regioneDalTitolare(dossier.Progetto, elenco)
+				// Il dataset nazionale non riporta la regione: si prova a
+				// dedurla dal nome del titolare. E' un indizio, non un dato,
+				// quindi la risposta lo dichiara.
+				if dedotta := regioneDalTitolare(dossier.Progetto); dedotta != "" {
+					regioneRicerca = dedotta
+					dossier.Regione = dedotta
+					dossier.Dedotta = true
+				}
 			}
 			for _, fam := range famiglieMOPOrdinate {
 				if fam == "progetti" {
@@ -150,7 +159,13 @@ func newNovelDossierCmd(flags *rootFlags) *cobra.Command {
 
 // regioneDalTitolare prova a dedurre la regione dal nome del titolare quando
 // il progetto arriva dal dataset nazionale, che la regione non la riporta.
-func regioneDalTitolare(progetto []map[string]any, elenco []dataset) string {
+// regioneAggregata riconosce le due "regioni" che in realta' sono aggregati
+// nazionali: non indicano dove cercare i dataset regionali.
+func regioneAggregata(r string) bool {
+	return r == "Totale" || r == "Territorio Nazionale"
+}
+
+func regioneDalTitolare(progetto []map[string]any) string {
 	for _, riga := range progetto {
 		for _, campo := range []string{"Descrizione Titolare", "Descrizione Ente"} {
 			valore := normalizza(testo(riga[campo]))
@@ -158,7 +173,7 @@ func regioneDalTitolare(progetto []map[string]any, elenco []dataset) string {
 				continue
 			}
 			for _, r := range regioniNote {
-				if r == "Totale" || r == "Territorio Nazionale" {
+				if regioneAggregata(r) {
 					continue
 				}
 				if strings.Contains(valore, normalizza(r)) {

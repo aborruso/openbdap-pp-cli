@@ -59,11 +59,13 @@ func newNovelSerieCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("'serie' legge solo l'archivio locale: allinea il catalogo con 'openbdap-pp-cli allinea'"))
 			}
 			filtro := normalizza(strings.Join(args, " "))
-			elenco, ok, err := datasetLocali(cmd, flags, dbPath)
+			segnaOrigineLocale(flags)
+			elenco, ok, err := datasetLocali(cmd, dbPath)
 			if err != nil {
 				return err
 			}
 			if !ok {
+				segnaOrigineLocale(flags)
 				return printJSONFiltered(cmd.OutOrStdout(), rispostaLocale{
 					Richiesta: strings.Join(args, " "),
 					Risultati: make([]serieCatalogo, 0),
@@ -263,7 +265,7 @@ func newNovelNovitaCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("--da non valido: %w", err))
 			}
 			soglia := time.Now().Add(-durata)
-			elenco, ok, err := datasetLocali(cmd, flags, dbPath)
+			elenco, ok, err := datasetLocali(cmd, dbPath)
 			if err != nil {
 				return err
 			}

@@ -266,8 +266,13 @@ func scaricaDataset(ctx context.Context, c *client.Client, ids []string, paralle
 					// Il portale va in timeout a intermittenza su richieste
 					// isolate: un secondo tentativo recupera la gran parte
 					// dei dataset che il primo passaggio perde.
-					time.Sleep(time.Second)
-					raw, err = dettaglioDataset(ctx, c, id)
+					select {
+					case <-ctx.Done():
+					case <-time.After(time.Second):
+					}
+					if ctx.Err() == nil {
+						raw, err = dettaglioDataset(ctx, c, id)
+					}
 				}
 				if err != nil {
 					esiti <- esito{err: fmt.Errorf("dataset %s: %w", id, err)}
@@ -324,12 +329,19 @@ func leggiDataset(db *store.Store) ([]dataset, error) {
 		return nil, err
 	}
 	fuori := make([]dataset, 0, len(righe))
+	illeggibili := 0
 	for _, riga := range righe {
 		var d dataset
 		if err := json.Unmarshal(riga, &d); err != nil {
+			// Una riga illeggibile farebbe sparire un dataset da ogni
+			// comando locale mentre il conteggio continua a dirsi completo.
+			illeggibili++
 			continue
 		}
 		fuori = append(fuori, d)
+	}
+	if illeggibili > 0 {
+		return fuori, fmt.Errorf("%d righe dell'archivio locale non sono leggibili: rilancia 'openbdap-pp-cli allinea'", illeggibili)
 	}
 	sort.Slice(fuori, func(i, j int) bool { return fuori[i].Titolo < fuori[j].Titolo })
 	return fuori, nil

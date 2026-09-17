@@ -7,12 +7,22 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"openbdap-pp-cli/internal/cliutil"
 	"openbdap-pp-cli/internal/store"
 )
+
+// segnaOrigineLocale corregge l'origine dichiarata nell'involucro per gli
+// agenti: l'annotazione del comando e' statica, ma un comando che risponde
+// senza toccare la rete ha restituito dati locali, non dati dal vivo.
+func segnaOrigineLocale(flags *rootFlags) {
+	if flags != nil {
+		flags.agentSource = "local"
+	}
+}
 
 // notaArchivioVuoto e' la spiegazione che accompagna ogni risposta vuota
 // dovuta a un archivio locale non ancora popolato. Viaggia nell'output, non
@@ -31,7 +41,7 @@ type rispostaLocale struct {
 
 // apriStore apre l'archivio locale del catalogo. Restituisce ok=false quando
 // l'archivio non esiste ancora: chi chiama stampa un risultato vuoto.
-func apriStore(cmd *cobra.Command, flags *rootFlags, dbPath string) (*store.Store, bool, error) {
+func apriStore(cmd *cobra.Command, dbPath string) (*store.Store, bool, error) {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		fmt.Fprintf(cmd.ErrOrStderr(), "nessun archivio locale in %s\nlancia: openbdap-pp-cli allinea\n", dbPath)
 		return nil, false, nil
@@ -44,8 +54,8 @@ func apriStore(cmd *cobra.Command, flags *rootFlags, dbPath string) (*store.Stor
 }
 
 // datasetLocali apre l'archivio e restituisce tutti i dataset allineati.
-func datasetLocali(cmd *cobra.Command, flags *rootFlags, dbPath string) ([]dataset, bool, error) {
-	db, ok, err := apriStore(cmd, flags, dbPath)
+func datasetLocali(cmd *cobra.Command, dbPath string) ([]dataset, bool, error) {
+	db, ok, err := apriStore(cmd, dbPath)
 	if err != nil || !ok {
 		return nil, ok, err
 	}
@@ -55,23 +65,6 @@ func datasetLocali(cmd *cobra.Command, flags *rootFlags, dbPath string) ([]datas
 		return nil, false, err
 	}
 	return elenco, true, nil
-}
-
-// risolviLocale risolve un dataset dall'archivio e verifica che abbia una
-// risorsa OData: senza quella non ci sono righe da leggere.
-func risolviLocale(cmd *cobra.Command, flags *rootFlags, dbPath, chiave string, servonoRighe bool) (dataset, bool, error) {
-	elenco, ok, err := datasetLocali(cmd, flags, dbPath)
-	if err != nil || !ok {
-		return dataset{}, ok, err
-	}
-	d, trovato := trovaDataset(elenco, chiave)
-	if !trovato {
-		return dataset{}, false, usageErr(fmt.Errorf("dataset %q non trovato nell'archivio locale: cercalo con 'openbdap-pp-cli cerca %s'", chiave, chiave))
-	}
-	if servonoRighe && d.ODataID == "" {
-		return dataset{}, false, fmt.Errorf("il dataset %q non pubblica una risorsa OData: scaricalo in CSV con 'openbdap-pp-cli scarica %s'", d.Titolo, d.ID)
-	}
-	return d, true, nil
 }
 
 func newAllineaCmd(flags *rootFlags) *cobra.Command {
@@ -120,13 +113,25 @@ func newAllineaCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer db.Close()
 
+			// L'allineamento completo dura minuti: senza avanzamento sembra
+			// bloccato. Va su standard error, cosi' l'output resta pulito.
+			inizio := time.Now()
+			visti := 0
+			fmt.Fprintf(cmd.ErrOrStderr(), "allineamento di %d dataset...\n", len(ids))
 			contati, errori := scaricaDataset(ctx, c, ids, paralleli, func(d dataset) error {
+				visti++
+				if visti%250 == 0 {
+					fmt.Fprintf(cmd.ErrOrStderr(), "  %d/%d dataset\n", visti, len(ids))
+				}
 				return salvaDataset(db, d)
 			})
+			esitoTempo := time.Since(inizio).Round(time.Second)
+			fmt.Fprintf(cmd.ErrOrStderr(), "allineati %d dataset su %d in %s\n", contati, len(ids), esitoTempo)
 			esito := map[string]any{
 				"dataset_allineati": contati,
 				"dataset_richiesti": len(ids),
 				"archivio":          dbPath,
+				"durata":            esitoTempo.String(),
 			}
 			if len(errori) > 0 {
 				falliti := make([]string, 0, len(errori))
@@ -139,6 +144,16 @@ func newAllineaCmd(flags *rootFlags) *cobra.Command {
 				esito["errori"] = len(errori)
 				esito["dettaglio_errori"] = falliti
 				fmt.Fprintf(cmd.ErrOrStderr(), "attenzione: %d dataset su %d non sono stati allineati\n", len(errori), len(ids))
+			}
+			if contati == 0 && len(ids) > 0 {
+				// Uscire con 0 qui farebbe proseguire uno script come
+				// 'allinea && cerca' su un archivio rimasto vuoto.
+				if !wantsHumanTable(cmd.OutOrStdout(), flags) {
+					if err := printJSONFiltered(cmd.OutOrStdout(), esito, flags); err != nil {
+						return err
+					}
+				}
+				return fmt.Errorf("nessun dataset allineato su %d richiesti", len(ids))
 			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), esito, flags)
@@ -180,7 +195,7 @@ func newCercaCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("'cerca' legge solo l'archivio locale: allinea il catalogo con 'openbdap-pp-cli allinea'"))
 			}
 			testoCercato := strings.Join(args, " ")
-			elenco, ok, err := datasetLocali(cmd, flags, dbPath)
+			elenco, ok, err := datasetLocali(cmd, dbPath)
 			if err != nil {
 				return err
 			}
@@ -197,6 +212,9 @@ func newCercaCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			risposta := rispostaLocale{Richiesta: testoCercato, Risultati: trovati, Trovati: len(trovati)}
+			if limite > 0 && len(trovati) == limite {
+				risposta.Nota = fmt.Sprintf("risultato troncato a --limite %d: potrebbero esserci altri dataset", limite)
+			}
 			if len(trovati) == 0 {
 				risposta.Nota = "nessun dataset corrisponde: se l'archivio locale e' vuoto lancia 'openbdap-pp-cli allinea'"
 			}
@@ -288,7 +306,7 @@ func newColonneCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			odataID := args[0]
-			if d, ok, err := risolviLocaleMorbido(cmd, flags, dbPath, args[0]); err != nil {
+			if d, ok, err := risolviLocaleMorbido(cmd, dbPath, args[0]); err != nil {
 				return err
 			} else if ok {
 				odataID = d.ODataID
@@ -321,7 +339,7 @@ func newColonneCmd(flags *rootFlags) *cobra.Command {
 
 // risolviLocaleMorbido prova a risolvere un dataset dall'archivio; se manca
 // l'archivio o la corrispondenza, chi chiama usa il valore cosi' com'e'.
-func risolviLocaleMorbido(cmd *cobra.Command, flags *rootFlags, dbPath, chiave string) (dataset, bool, error) {
+func risolviLocaleMorbido(cmd *cobra.Command, dbPath, chiave string) (dataset, bool, error) {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		return dataset{}, false, nil
 	}
@@ -380,7 +398,7 @@ func newRigheCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			odataID := args[0]
-			if d, ok, err := risolviLocaleMorbido(cmd, flags, dbPath, args[0]); err != nil {
+			if d, ok, err := risolviLocaleMorbido(cmd, dbPath, args[0]); err != nil {
 				return err
 			} else if ok {
 				odataID = d.ODataID
@@ -393,6 +411,9 @@ func newRigheCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return usageErr(err)
 			}
+			// Il servizio non regge pagine grandi: oltre 5000 righe per
+			// chiamata va in timeout. Si impagina anche senza --tutte quando
+			// il limite chiesto supera la pagina.
 			pagina := limite
 			if pagina <= 0 || pagina > 1000 {
 				pagina = 1000
@@ -403,6 +424,7 @@ func newRigheCmd(flags *rootFlags) *cobra.Command {
 					pagina = 50
 				}
 			}
+			ancora := tutte || (limite > pagina)
 			var righe []map[string]any
 			offset := salta
 			for {
@@ -411,7 +433,7 @@ func newRigheCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 				righe = append(righe, blocco...)
-				if !tutte || len(blocco) < pagina {
+				if !ancora || len(blocco) < pagina {
 					break
 				}
 				if limite > 0 && len(righe) >= limite {
@@ -479,7 +501,7 @@ func newContaCmd(flags *rootFlags) *cobra.Command {
 			}
 			odataID := args[0]
 			titolo := ""
-			if d, ok, err := risolviLocaleMorbido(cmd, flags, dbPath, args[0]); err != nil {
+			if d, ok, err := risolviLocaleMorbido(cmd, dbPath, args[0]); err != nil {
 				return err
 			} else if ok {
 				odataID, titolo = d.ODataID, d.Titolo

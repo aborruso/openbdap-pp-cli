@@ -78,3 +78,40 @@ func TestOdataPath(t *testing.T) {
 		t.Errorf("odataPath = %q", got)
 	}
 }
+
+// Una chiave vuota non deve risolvere: la ricerca parziale la troverebbe in
+// qualunque nome e filtrerebbe sulla prima colonna del dataset.
+func TestRisolviColonnaChiaveVuota(t *testing.T) {
+	for _, chiave := range []string{"", "   "} {
+		if col, ok := risolviColonna(colonneDiProva(), chiave); ok {
+			t.Errorf("risolviColonna(%q) ha risolto su %q", chiave, col.ID)
+		}
+	}
+}
+
+func TestCostruisciFiltroColonnaVuota(t *testing.T) {
+	if _, err := costruisciFiltro(colonneDiProva(), []string{"=I39B05000060005"}); err == nil {
+		t.Error("una condizione senza nome di colonna deve produrre un errore")
+	}
+}
+
+func TestScartaVirgolette(t *testing.T) {
+	casi := map[string]string{
+		`"valore"`: "valore",
+		"'valore'": "valore",
+		"valore":   "valore",
+		"VALLE D'": "VALLE D'", // l'apostrofo finale non e' una virgoletta di apertura
+		`"`:        `"`,
+	}
+	for dato, atteso := range casi {
+		if got := scartaVirgolette(dato); got != atteso {
+			t.Errorf("scartaVirgolette(%q) = %q, atteso %q", dato, got, atteso)
+		}
+	}
+}
+
+func TestFiltroUguale(t *testing.T) {
+	if got := filtroUguale("Cc1", "VALLE D'AOSTA"); got != "Cc1 eq 'VALLE D''AOSTA'" {
+		t.Errorf("filtroUguale = %q", got)
+	}
+}
