@@ -92,12 +92,38 @@ func risolviColonna(colonne []colonna, chiave string) (colonna, bool) {
 			return c, true
 		}
 	}
+	// La ricerca parziale accetta solo una corrispondenza: con piu' colonne
+	// che contengono il testo, sceglierne una in silenzio filtrerebbe su un
+	// campo diverso da quello inteso e restituirebbe righe sbagliate.
+	var parziali []colonna
 	for _, c := range colonne {
 		if strings.Contains(normalizza(c.Nome), k) {
-			return c, true
+			parziali = append(parziali, c)
 		}
 	}
+	if len(parziali) == 1 {
+		return parziali[0], true
+	}
 	return colonna{}, false
+}
+
+// colonneAmbigue elenca i nomi leggibili che contengono la chiave, per dire a
+// chi sbaglia quali colonne stava per confondere.
+func colonneAmbigue(colonne []colonna, chiave string) []string {
+	k := normalizza(chiave)
+	if k == "" {
+		return nil
+	}
+	var nomi []string
+	for _, c := range colonne {
+		if strings.Contains(normalizza(c.Nome), k) {
+			nomi = append(nomi, c.Nome)
+		}
+	}
+	if len(nomi) < 2 {
+		return nil
+	}
+	return nomi
 }
 
 // filtroUguale costruisce una condizione di uguaglianza OData. L'apostrofo va
@@ -129,6 +155,9 @@ func costruisciFiltro(colonne []colonna, condizioni []string) (string, error) {
 		}
 		col, ok := risolviColonna(colonne, pezzi[0])
 		if !ok {
+			if ambigue := colonneAmbigue(colonne, pezzi[0]); len(ambigue) > 0 {
+				return "", fmt.Errorf("colonna %q ambigua: corrisponde a %s. Indica il nome esatto", pezzi[0], strings.Join(ambigue, ", "))
+			}
 			return "", fmt.Errorf("colonna %q non trovata: usa 'colonne <dataset>' per vedere i nomi disponibili", pezzi[0])
 		}
 		valore := scartaVirgolette(strings.TrimSpace(pezzi[1]))

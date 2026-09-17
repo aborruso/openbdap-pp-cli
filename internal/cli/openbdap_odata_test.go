@@ -2,7 +2,10 @@
 
 package cli
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func colonneDiProva() []colonna {
 	return []colonna{
@@ -132,5 +135,43 @@ func TestControllaCodice(t *testing.T) {
 	// Un'etichetta sconosciuta non deve bloccare: nessun formato da imporre.
 	if err := controllaCodice("qualsiasi", "altro"); err != nil {
 		t.Errorf("etichetta sconosciuta = %v", err)
+	}
+}
+
+// Una chiave parziale che corrisponde a piu' colonne non deve risolvere:
+// sceglierne una in silenzio filtrerebbe sul campo sbagliato.
+func TestRisolviColonnaAmbigua(t *testing.T) {
+	colonne := []colonna{
+		{Nome: "Codice CUP", ID: "Cc1"},
+		{Nome: "Codice CIG", ID: "Cc2"},
+		{Nome: "Descrizione Titolare", ID: "Cc3"},
+	}
+	if col, ok := risolviColonna(colonne, "codice"); ok {
+		t.Errorf("la chiave ambigua ha risolto su %q", col.ID)
+	}
+	if col, ok := risolviColonna(colonne, "titolare"); !ok || col.ID != "Cc3" {
+		t.Errorf("la chiave con una sola corrispondenza deve risolvere, ottenuto (%q,%v)", col.ID, ok)
+	}
+	// Il nome esatto resta risolvibile anche quando e' prefisso di altri.
+	if col, ok := risolviColonna(colonne, "Codice CUP"); !ok || col.ID != "Cc1" {
+		t.Errorf("il nome esatto deve risolvere, ottenuto (%q,%v)", col.ID, ok)
+	}
+	ambigue := colonneAmbigue(colonne, "codice")
+	if len(ambigue) != 2 {
+		t.Errorf("colonneAmbigue = %v, attese 2 voci", ambigue)
+	}
+	if colonneAmbigue(colonne, "titolare") != nil {
+		t.Error("una sola corrispondenza non e' ambigua")
+	}
+}
+
+func TestCostruisciFiltroColonnaAmbigua(t *testing.T) {
+	colonne := []colonna{{Nome: "Codice CUP", ID: "Cc1"}, {Nome: "Codice CIG", ID: "Cc2"}}
+	_, err := costruisciFiltro(colonne, []string{"codice=X"})
+	if err == nil {
+		t.Fatal("una colonna ambigua deve produrre un errore")
+	}
+	if !strings.Contains(err.Error(), "ambigua") {
+		t.Errorf("l'errore deve spiegare l'ambiguita', ottenuto: %v", err)
 	}
 }

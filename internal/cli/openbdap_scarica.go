@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -74,7 +75,9 @@ func newScaricaCmd(flags *rootFlags) *cobra.Command {
 			}
 			client := &http.Client{Transport: trasporto}
 			if cliutil.IsDogfoodEnv() {
-				client.Timeout = 20 * time.Second
+				// Il banco di prova concede 120 secondi: il portale a volte
+				// impiega decine di secondi solo per rispondere.
+				client.Timeout = 90 * time.Second
 			}
 			resp, err := client.Do(req)
 			if err != nil {
@@ -90,22 +93,36 @@ func newScaricaCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("il portale ha risposto %s invece di CSV per il dataset %s: controlla l'identificativo", tipo, id)
 			}
 
-			// Con un formato macchina il CSV grezzo renderebbe l'output non
-			// parsabile: si scrive su file e si stampa una ricevuta.
-			if destinazione == "" && !wantsHumanTable(cmd.OutOrStdout(), flags) {
+			// Con un formato macchina esplicito il CSV grezzo renderebbe
+			// l'output non parsabile: si scrive su file e si stampa una
+			// ricevuta. Con lo standard output in pipe, invece, il CSV deve
+			// continuare a scorrere: 'scarica <id> | head -5' e' un uso normale.
+			riceuta := wantsMachineOutput(flags)
+			if destinazione == "" && riceuta {
 				destinazione = id + ".csv"
 			}
 			destinatario := cmd.OutOrStdout()
 			var file *os.File
+			var temporaneo string
 			if destinazione != "" {
-				// La destinazione e' il percorso chiesto dall'operatore con --output,
-				// oppure "<id>.csv" costruito qui sopra: scrivere dove e' stato
-				// indicato e' il compito del comando, non un'inclusione di file.
-				file, err = os.Create(destinazione) // #nosec G304 -- percorso di scrittura scelto da chi invoca la CLI
+				// Si scrive su un file temporaneo accanto alla destinazione e
+				// si rinomina solo a scaricamento riuscito: un dump di
+				// centinaia di megabyte interrotto a meta' non deve
+				// distruggere una copia valida gia' presente.
+				// La destinazione e' il percorso chiesto dall'operatore con
+				// --output, oppure "<id>.csv" costruito qui sopra: scrivere
+				// dove e' stato indicato e' il compito del comando.
+				file, err = os.CreateTemp(filepath.Dir(destinazione), filepath.Base(destinazione)+".parziale-*") // #nosec G304 -- percorso di scrittura scelto da chi invoca la CLI
 				if err != nil {
 					return err
 				}
-				defer file.Close()
+				temporaneo = file.Name()
+				defer func() {
+					file.Close()
+					if temporaneo != "" {
+						os.Remove(temporaneo)
+					}
+				}()
 				destinatario = file
 			}
 			scritti, err := io.Copy(destinatario, resp.Body)
@@ -118,7 +135,14 @@ func newScaricaCmd(flags *rootFlags) *cobra.Command {
 			if err := file.Sync(); err != nil {
 				return err
 			}
-			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
+			if err := file.Close(); err != nil {
+				return err
+			}
+			if err := os.Rename(temporaneo, destinazione); err != nil {
+				return fmt.Errorf("rinomina del file scaricato: %w", err)
+			}
+			temporaneo = ""
+			if riceuta {
 				return printJSONFiltered(cmd.OutOrStdout(), map[string]any{
 					"dataset": id,
 					"file":    destinazione,

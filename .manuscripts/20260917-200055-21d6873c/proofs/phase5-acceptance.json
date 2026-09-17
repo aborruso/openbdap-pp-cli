@@ -11,7 +11,7 @@
   "auth_context": {
     "type": "none"
   },
-  "source_fingerprint": "1ef8f4a2c497851416955a56b8029b49b1ab74365e9f503d4cce192ec945db05",
+  "source_fingerprint": "591475c727c7aac734143e0411e27cb6d18bc4c0000fd421ae8c84ce687ce57c",
   "source_files": {
     "cmd/openbdap-pp-cli/main.go": "51e151d8013dd59063e9cb5ef6ddc6552f4274ca965f55ad69cba12e7d678eb9",
     "cmd/openbdap-pp-mcp/http_auth_test.go": "18ffb789bd7e5853c9f7789d13cf5a36ae08aff948a3731f55667c6d27efa07e",
@@ -64,10 +64,10 @@
     "internal/cli/openbdap_comandi_base.go": "933d75f861dcb1f89a4d607c429ac1bc7cd99ffaad378581876297736b3947f9",
     "internal/cli/openbdap_dossier.go": "7bc2bb0eefb76b7404097f9bbdaef33cb8c084bd5f34f4fc40c6abec22fc7001",
     "internal/cli/openbdap_mop.go": "755a28d2da4d189397a689f914ba7eaa5069507aaf8dbb278445a8a1f559f0ed",
-    "internal/cli/openbdap_odata.go": "ee6560b6763ae7d670be4fbbf29b3b39d642c9cd1aa1a3ac714a93a90f9ba0d9",
-    "internal/cli/openbdap_odata_test.go": "9b05689c9db10934c0fa2a998e7c702a747288237c55f0c3c3006e41d202d39a",
+    "internal/cli/openbdap_odata.go": "d0d361ea9724dbd59ca35b84227c8d6f28f69abd95cd3994d13c012b531c077c",
+    "internal/cli/openbdap_odata_test.go": "cb27f324a0674f55ffbd1494b8550cacd020b80a12811d701ca570a204c638a8",
     "internal/cli/openbdap_opere.go": "94be02ddbb5f9b679cf10eb17f756f197cc253fd1e5210cf6edbe6693f3de8c3",
-    "internal/cli/openbdap_scarica.go": "42f56c07c5724aae7a420033a79efc621453b74e21e02e2fb3aa21724478c10f",
+    "internal/cli/openbdap_scarica.go": "ac4d48d22b82cbfa0bcad56b3ed0600aeeefa1c000075fd9f4c46ff8d6419d08",
     "internal/cli/openbdap_serie.go": "b9f315650724029271fc21f24694c2de0f235302435068e5209caca0f6808d5f",
     "internal/cli/openbdap_serie_test.go": "6a18ac1d0eda47cee0049d44323a7bd15b30ba76e7072526675fb816ac87e054",
     "internal/cli/opere.go": "1cfae52618ae8b0cf3c55180431a012255a404dd60f0748bfb32b477ff129369",
