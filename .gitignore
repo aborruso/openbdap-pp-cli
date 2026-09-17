@@ -6,3 +6,6 @@
 /bin/
 /build/
 /dist/
+
+# Dump CSV lasciati nella directory corrente da "scarica" (anche durante i test).
+/*.csv

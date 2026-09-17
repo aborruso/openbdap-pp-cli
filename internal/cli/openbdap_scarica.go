@@ -98,7 +98,10 @@ func newScaricaCmd(flags *rootFlags) *cobra.Command {
 			destinatario := cmd.OutOrStdout()
 			var file *os.File
 			if destinazione != "" {
-				file, err = os.Create(destinazione)
+				// La destinazione e' il percorso chiesto dall'operatore con --output,
+				// oppure "<id>.csv" costruito qui sopra: scrivere dove e' stato
+				// indicato e' il compito del comando, non un'inclusione di file.
+				file, err = os.Create(destinazione) // #nosec G304 -- percorso di scrittura scelto da chi invoca la CLI
 				if err != nil {
 					return err
 				}

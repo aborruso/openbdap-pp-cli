@@ -50,7 +50,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("catalogo_elenco",
-			mcplib.WithDescription("Elenca gli identificativi di tutti i dataset del catalogo. Returns array of DatasetId."),
+			mcplib.WithDescription("Elenca gli identificativi UUID di tutti i dataset del catalogo OpenBDAP, circa 3.900 voci e nessun metadato. Nessun parametro e nessun filtro. Restituisce un array di identificativi da passare a catalogo_dettaglio o ai comandi dati_*. Per cercare per testo usa catalogo_ricerca, per elencare i dataset di un tema usa gruppi_dettaglio. Returns array of DatasetId."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -134,7 +134,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("gruppi_elenco",
-			mcplib.WithDescription("Elenca i temi del catalogo. Returns array of NomeGruppo."),
+			mcplib.WithDescription("Elenca i temi (gruppi CKAN) del catalogo OpenBDAP, per esempio 172_opere-pubbliche. Nessun parametro. Restituisce un array di nomi di tema. Usalo per ottenere il nome da passare a gruppi_dettaglio, che a sua volta restituisce gli UUID dei dataset contenuti nel tema. Returns array of NomeGruppo."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -143,7 +143,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("licenze_elenco",
-			mcplib.WithDescription("Elenca le licenze. Returns array of Licenza."),
+			mcplib.WithDescription("Elenca le licenze ammesse dal catalogo OpenBDAP. Nessun parametro. Restituisce un array di licenze con id, title e url: l'id e' il valore che compare nel campo license_id dei metadati restituiti da catalogo_dettaglio. Usalo per sciogliere quell'id nel nome esteso della licenza e nel link al testo, non per cercare dataset. Returns array of Licenza."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -162,7 +162,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("tag_elenco",
-			mcplib.WithDescription("Elenca le parole chiave. Returns array of NomeTag."),
+			mcplib.WithDescription("Elenca tutte le parole chiave (tag CKAN) usate nel catalogo OpenBDAP. Nessun parametro. Restituisce un array di nomi. Usalo per scoprire i termini effettivamente presenti prima di interrogare catalogo_ricerca; questo comando non restituisce i dataset associati a una parola chiave, per quelli serve catalogo_ricerca. Returns array of NomeTag."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -998,7 +998,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 	}
 	ctx := map[string]any{
 		"api":         "openbdap",
-		"description": "Il catalogo Open Data della Ragioneria Generale dello Stato da terminale: ricerca offline, righe filtrate per nome di colonna leggibile e opere pubbliche cercabili per CUP, CIG o codice fiscale.",
+		"description": "CLI per il catalogo Open Data di OpenBDAP (Ragioneria Generale dello Stato)",
 		"archetype":   "generic",
 		"tool_count":  len(s.ListTools()),
 		"paths":       paths,
@@ -1061,7 +1061,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 		// to the companion CLI binary.
 		"command_mirror_capabilities": registeredCommandMirrorCapabilities(s, []map[string]string{
 			{"name": "Dossier di progetto", "command": "dossier", "cli_command": "dossier", "description": "Il quadro completo di un'opera pubblica a partire dal CUP: progetto, pagamenti, gare, partecipanti", "rationale": "Richiede di unire il dataset MOP Totale con i cinque dataset MOP regionali", "via": "mcp-command-mirror"},
-			{"name": "Serie storiche del catalogo", "command": "serie", "cli_command": "serie", "description": "Le annualita' e le regioni disponibili di una stessa serie di dataset.", "rationale": "Le serie esistono solo dentro i titoli dei 3857 dataset e vanno ricostruite nello store locale.", "via": "mcp-command-mirror"},
+			{"name": "Serie storiche del catalogo", "command": "serie", "cli_command": "serie", "description": "Le annualita', le mensilita' e le regioni disponibili di una stessa serie di dataset.", "rationale": "Le serie esistono solo dentro i titoli dei 3857 dataset e vanno ricostruite nello store locale.", "via": "mcp-command-mirror"},
 			{"name": "Opere di un ente", "command": "opere", "cli_command": "opere", "description": "Le opere pubbliche in capo a un ente, a partire dal suo codice fiscale, con il totale reale.", "rationale": "Il codice fiscale del titolare e' una chiave trasversale ai dataset MOP regionali e il conteggio vero arriva solo da", "via": "mcp-command-mirror"},
 			{"name": "Novita' del catalogo", "command": "novita", "cli_command": "novita", "description": "I dataset il cui ultimo aggiornamento cade nella finestra indicata.", "rationale": "Il portale non pubblica un flusso di attivita': le date di aggiornamento sono leggibili solo dall'archivio locale.", "via": "mcp-command-mirror"},
 			{"name": "Indice dei campi", "command": "campi", "cli_command": "campi", "description": "In quali dataset esiste un campo, con l'identificativo pronto da usare nei filtri.", "rationale": "L'identificativo di colonna e' deterministico e l'indice locale delle colonne lo lega ai dataset che lo contengono.", "via": "mcp-command-mirror"},
@@ -1069,9 +1069,9 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{"name": "Ricerca per CIG", "command": "cig", "cli_command": "cig", "description": "La gara e i partecipanti a partire dal codice CIG.", "rationale": "Il CIG non compare nel dataset nazionale e va cercato in parallelo sui dataset di gare e partecipanti regionali.", "via": "mcp-command-mirror"},
 		}),
 		"playbook": []map[string]string{
-			{"topic": "Dossier di progetto", "insight": "Richiede di unire il dataset MOP Totale con i cinque dataset MOP regionali, che nessuna chiamata singola restituisce insieme."},
+			{"topic": "Dossier di progetto", "insight": "Richiede di unire il dataset MOP Totale con i cinque dataset MOP regionali"},
 			{"topic": "Serie storiche del catalogo", "insight": "Le serie esistono solo dentro i titoli dei 3857 dataset e vanno ricostruite nello store locale."},
-			{"topic": "Opere di un ente", "insight": "Il codice fiscale del titolare e' una chiave trasversale ai dataset MOP regionali e il conteggio vero arriva solo da count=true."},
+			{"topic": "Opere di un ente", "insight": "Il codice fiscale del titolare e' una chiave trasversale ai dataset MOP regionali e il conteggio vero arriva solo da"},
 			{"topic": "Novita' del catalogo", "insight": "Il portale non pubblica un flusso di attivita': le date di aggiornamento sono leggibili solo dall'archivio locale."},
 			{"topic": "Indice dei campi", "insight": "L'identificativo di colonna e' deterministico e l'indice locale delle colonne lo lega ai dataset che lo contengono."},
 			{"topic": "Mappa della famiglia MOP", "insight": "Lato OData non esiste alcun elenco: ruolo e regione si ricavano dai nomi dei dataset conservati nello store."},

@@ -32,7 +32,7 @@
     },
     {
       "name": "catalogo_elenco",
-      "description": "Elenca gli identificativi di tutti i dataset del catalogo. Returns array of DatasetId.",
+      "description": "Elenca gli identificativi UUID di tutti i dataset del catalogo OpenBDAP, circa 3.900 voci e nessun metadato. Nessun parametro e nessun filtro. Restituisce un array di identificativi da passare a catalogo_dettaglio o ai comandi dati_*. Per cercare per testo usa catalogo_ricerca, per elencare i dataset di un tema usa gruppi_dettaglio. Returns array of DatasetId.",
       "method": "GET",
       "path": "/SpodCkanApi/api/3/action/package_list",
       "no_auth": true,
@@ -212,7 +212,7 @@
     },
     {
       "name": "gruppi_elenco",
-      "description": "Elenca i temi del catalogo. Returns array of NomeGruppo.",
+      "description": "Elenca i temi (gruppi CKAN) del catalogo OpenBDAP, per esempio 172_opere-pubbliche. Nessun parametro. Restituisce un array di nomi di tema. Usalo per ottenere il nome da passare a gruppi_dettaglio, che a sua volta restituisce gli UUID dei dataset contenuti nel tema. Returns array of NomeGruppo.",
       "method": "GET",
       "path": "/SpodCkanApi/api/3/action/group_list",
       "no_auth": true,
@@ -220,7 +220,7 @@
     },
     {
       "name": "licenze_elenco",
-      "description": "Elenca le licenze. Returns array of Licenza.",
+      "description": "Elenca le licenze ammesse dal catalogo OpenBDAP. Nessun parametro. Restituisce un array di licenze con id, title e url: l'id e' il valore che compare nel campo license_id dei metadati restituiti da catalogo_dettaglio. Usalo per sciogliere quell'id nel nome esteso della licenza e nel link al testo, non per cercare dataset. Returns array of Licenza.",
       "method": "GET",
       "path": "/SpodCkanApi/api/3/action/license_list",
       "no_auth": true,
@@ -244,7 +244,7 @@
     },
     {
       "name": "tag_elenco",
-      "description": "Elenca le parole chiave. Returns array of NomeTag.",
+      "description": "Elenca tutte le parole chiave (tag CKAN) usate nel catalogo OpenBDAP. Nessun parametro. Restituisce un array di nomi. Usalo per scoprire i termini effettivamente presenti prima di interrogare catalogo_ricerca; questo comando non restituisce i dataset associati a una parola chiave, per quelli serve catalogo_ricerca. Returns array of NomeTag.",
       "method": "GET",
       "path": "/SpodCkanApi/api/3/action/tag_list",
       "no_auth": true,
@@ -270,7 +270,7 @@
     {
       "name": "Novita' del catalogo",
       "command": "novita",
-      "description": "I dataset nuovi e quelli aggiornati rispetto all'ultimo allineamento locale."
+      "description": "I dataset il cui ultimo aggiornamento cade nella finestra indicata."
     },
     {
       "name": "Indice dei campi",

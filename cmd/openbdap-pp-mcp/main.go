@@ -48,7 +48,7 @@ func main() {
 		os.Exit(1)
 	}
 	s := server.NewMCPServer(
-		"Openbdap",
+		"OpenBDAP",
 		version,
 		server.WithToolCapabilities(false),
 	)

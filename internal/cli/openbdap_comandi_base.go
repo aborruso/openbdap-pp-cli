@@ -82,7 +82,11 @@ func newAllineaCmd(flags *rootFlags) *cobra.Command {
   openbdap-pp-cli allinea
   openbdap-pp-cli allinea --tema 172_opere-pubbliche
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
+		// Niente "mcp:read-only": allinea riscrive l'archivio locale, in un
+		// percorso che chi chiama non ha indicato, e cambia cio' che
+		// restituiscono 'cerca', 'serie' e 'mop'. Un host MCP deve chiedere
+		// conferma prima di lanciarlo.
+		Annotations: map[string]string{"pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return writeDryRun(cmd.OutOrStdout(), flags, "allinea")
