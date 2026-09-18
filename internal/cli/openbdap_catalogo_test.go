@@ -11,7 +11,9 @@ func TestDerivaSerie(t *testing.T) {
 	}{
 		{"2024 - Prima Nota di Variazione Approvata Elaborabile Spese Capitolo", "2024", "2024", "", "Prima Nota di Variazione Approvata Elaborabile Spese Capitolo"},
 		{"2025/08 - Pagamenti Bilancio dello Stato per Missione Amministrazione", "2025", "2025/08", "", "Pagamenti Bilancio dello Stato per Missione Amministrazione"},
-		{"2018 - Emilia-Romagna - SIOPE Movimenti mensili delle disponibilità liquide", "2018", "2018", "", "Emilia-Romagna - SIOPE Movimenti mensili delle disponibilità liquide"},
+		// Nelle serie SIOPE la regione sta fra l'anno e il nome della serie.
+		{"2018 - Emilia-Romagna - SIOPE Movimenti mensili delle disponibilità liquide", "2018", "2018", "Emilia-Romagna", "SIOPE Movimenti mensili delle disponibilità liquide"},
+		{"2025/08 - Sicilia - SIOPE Movimenti cumulati mensili di Spesa", "2025", "2025/08", "Sicilia", "SIOPE Movimenti cumulati mensili di Spesa"},
 		{"Progetti Opere Pubbliche MOP - Sicilia", "", "", "Sicilia", "Progetti Opere Pubbliche MOP"},
 		{"Progetti Opere Pubbliche MOP - Totale", "", "", "Totale", "Progetti Opere Pubbliche MOP"},
 		{"Gare Opere Pubbliche MOP - Valle d'Aosta", "", "", "Valle d'Aosta", "Gare Opere Pubbliche MOP"},
@@ -95,5 +97,24 @@ func TestTrovaDatasetETrovaMOP(t *testing.T) {
 	}
 	if got := datasetMOP(elenco, "gare", "Sicilia"); len(got) != 0 {
 		t.Errorf("nessun dataset atteso, ottenuti %v", got)
+	}
+}
+
+// Il portale scrive la stessa regione in due modi: il riconoscimento deve
+// ignorare le maiuscole e restituire sempre la forma canonica, altrimenti la
+// stessa serie si spezza in due gruppi.
+func TestDerivaSerieRegioneMaiuscole(t *testing.T) {
+	casi := []string{
+		"2024 - Valle D'Aosta - SIOPE Movimenti cumulati mensili di Spesa",
+		"2024 - Valle d'Aosta - SIOPE Movimenti cumulati mensili di Spesa",
+	}
+	for _, titolo := range casi {
+		_, _, regione, serie := derivaSerie(titolo)
+		if regione != "Valle d'Aosta" {
+			t.Errorf("derivaSerie(%q) regione = %q", titolo, regione)
+		}
+		if serie != "SIOPE Movimenti cumulati mensili di Spesa" {
+			t.Errorf("derivaSerie(%q) serie = %q", titolo, serie)
+		}
 	}
 }

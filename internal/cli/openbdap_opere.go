@@ -174,6 +174,9 @@ func configuraRicercaMOP(cmd *cobra.Command, flags *rootFlags, r ricercaMOP) *co
 		if falliti > 0 {
 			fmt.Fprintf(cmd.ErrOrStderr(), "attenzione: %d dataset su %d non hanno risposto; il risultato e' parziale\n", falliti, len(esiti))
 		}
+		for i := range risultati {
+			risultati[i].Righe = compattaRighe(risultati[i].Righe, flags.compact)
+		}
 		if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 			// Stesso involucro sia con risultati sia senza: cambiare forma a
 			// seconda dell'esito costringe chi legge a gestire due casi.
@@ -299,6 +302,7 @@ func newNovelOpereCmd(flags *rootFlags) *cobra.Command {
 			if len(problemi) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "attenzione: %d dataset su %d non hanno risposto; il totale e' calcolato sui restanti\n", len(problemi), len(bersagli))
 			}
+			righe = compattaRighe(righe, flags.compact)
 			esito := map[string]any{
 				"codice_fiscale":      strings.TrimSpace(cf),
 				"totale":              totale,

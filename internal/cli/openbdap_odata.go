@@ -226,7 +226,10 @@ func righeDataset(ctx context.Context, c *client.Client, odataID string, colonne
 	for _, riga := range risposta.D.Results {
 		pulita := make(map[string]any, len(riga))
 		for k, v := range riga {
-			if k == "__metadata" {
+			// row_id e' l'indice della riga dentro la pagina OData: riparte da
+			// zero a ogni chiamata e non dice nulla sul dato. __metadata e'
+			// l'involucro del protocollo.
+			if k == "__metadata" || k == "row_id" {
 				continue
 			}
 			if etichetta, ok := etichette[k]; ok && etichetta != "" {
@@ -238,6 +241,43 @@ func righeDataset(ctx context.Context, c *client.Client, odataID string, colonne
 		fuori = append(fuori, pulita)
 	}
 	return fuori, nil
+}
+
+// compattaRighe toglie dai risultati i campi senza contenuto. Su questi
+// dataset sono spesso meta' della riga, e --compact altrimenti non avrebbe
+// effetto, perche' cerca nomi convenzionali (id, name, status) che qui non
+// esistono: le colonne hanno i nomi leggibili del dataset.
+func compattaRighe(righe []map[string]any, compatta bool) []map[string]any {
+	if !compatta {
+		return righe
+	}
+	fuori := make([]map[string]any, 0, len(righe))
+	for _, riga := range righe {
+		pulita := make(map[string]any, len(riga))
+		for k, v := range riga {
+			if campoVuoto(v) {
+				continue
+			}
+			pulita[k] = v
+		}
+		fuori = append(fuori, pulita)
+	}
+	return fuori
+}
+
+// campoVuoto riconosce i valori che il servizio usa per "nessun dato": la
+// stringa vuota e il valore assente. Uno zero non e' un campo mancante: su
+// questi dataset "Costo Lavori Effettivo: 0.00" e' un importo registrato, e
+// toglierlo lo renderebbe indistinguibile da un dato che non c'e'.
+func campoVuoto(v any) bool {
+	switch t := v.(type) {
+	case nil:
+		return true
+	case string:
+		return strings.TrimSpace(t) == ""
+	default:
+		return false
+	}
 }
 
 // contaRighe usa il parametro non standard count=true, che e' l'unico

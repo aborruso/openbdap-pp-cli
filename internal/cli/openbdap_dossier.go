@@ -133,12 +133,24 @@ func newNovelDossierCmd(flags *rootFlags) *cobra.Command {
 				}
 				dossier.Sezioni[fam] = righe
 			}
+			dossier.Progetto = compattaRighe(dossier.Progetto, flags.compact)
+			for fam, righe := range dossier.Sezioni {
+				dossier.Sezioni[fam] = compattaRighe(righe, flags.compact)
+			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), dossier, flags)
 			}
+			// L'intestazione dice di che opera si tratta: il CUP e chi la
+			// realizza. Senza, la scheda si apre con il primo campo che capita.
 			fmt.Fprintf(cmd.OutOrStdout(), "CUP %s", cup)
+			if titolare := testo(dossier.Progetto[0]["Descrizione Titolare"]); titolare != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), " - %s", titolare)
+			}
+			if stato := testo(dossier.Progetto[0]["Descrizione Stato CUP"]); stato != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), " - %s", stato)
+			}
 			if dossier.Regione != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), " - %s", dossier.Regione)
+				fmt.Fprintf(cmd.OutOrStdout(), " (%s)", dossier.Regione)
 			}
 			fmt.Fprintln(cmd.OutOrStdout())
 			if err := printAutoTable(cmd.OutOrStdout(), dossier.Progetto); err != nil {

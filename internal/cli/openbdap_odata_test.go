@@ -175,3 +175,47 @@ func TestCostruisciFiltroColonnaAmbigua(t *testing.T) {
 		t.Errorf("l'errore deve spiegare l'ambiguita', ottenuto: %v", err)
 	}
 }
+
+func TestCompattaRighe(t *testing.T) {
+	righe := []map[string]any{{
+		"Codice CUP":                  "I77H11000120009",
+		"Costo Lavori Previsto":       "1076000.00",
+		"Costo Lavori Effettivo":      "0.00",
+		"Fine esecuzione prevista":    "",
+		"Oneri Investimento Previsti": float64(0),
+	}}
+	// Senza --compact la riga resta intera: i campi vuoti sono un'informazione.
+	if got := compattaRighe(righe, false); len(got[0]) != 5 {
+		t.Errorf("senza compattazione = %d campi, attesi 5", len(got[0]))
+	}
+	// Gli zeri restano: "Costo Lavori Effettivo: 0.00" e' un importo
+	// registrato, non un campo mancante. Sparisce solo la stringa vuota.
+	compatte := compattaRighe(righe, true)
+	if len(compatte[0]) != 4 {
+		t.Errorf("con compattazione = %v, attesi i quattro campi con valore", compatte[0])
+	}
+	if _, presente := compatte[0]["Costo Lavori Effettivo"]; !presente {
+		t.Error("uno zero registrato deve restare")
+	}
+	if _, presente := compatte[0]["Fine esecuzione prevista"]; presente {
+		t.Error("il campo vuoto doveva sparire")
+	}
+	if _, presente := compatte[0]["Codice CUP"]; !presente {
+		t.Error("il CUP deve restare")
+	}
+}
+
+func TestCampoVuoto(t *testing.T) {
+	vuoti := []any{nil, "", "   "}
+	for _, v := range vuoti {
+		if !campoVuoto(v) {
+			t.Errorf("campoVuoto(%#v) = false", v)
+		}
+	}
+	pieni := []any{"A", "0.01", "0.00", "0", float64(0), float64(1), "2011-04-11", "00107730079"}
+	for _, v := range pieni {
+		if campoVuoto(v) {
+			t.Errorf("campoVuoto(%#v) = true", v)
+		}
+	}
+}

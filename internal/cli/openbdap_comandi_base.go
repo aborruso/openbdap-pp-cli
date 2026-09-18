@@ -454,6 +454,7 @@ func newRigheCmd(flags *rootFlags) *cobra.Command {
 			if righe == nil {
 				righe = make([]map[string]any, 0)
 			}
+			righe = compattaRighe(righe, flags.compact)
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), righe, flags)
 			}

@@ -145,11 +145,24 @@ func derivaSerie(titolo string) (anno, periodo, regione, serie string) {
 		anno, periodo = m[1], m[1]
 		resto = titolo[len(m[0]):]
 	}
+	// La regione compare in coda nei dataset MOP ("... - Sicilia") e subito
+	// dopo l'anno nelle serie SIOPE ("2024 - Sicilia - SIOPE ..."): vanno
+	// riconosciute entrambe, altrimenti il filtro --regione perde meta' del
+	// catalogo.
+	// Il confronto ignora le maiuscole perche' il portale scrive la stessa
+	// regione in modi diversi ("Valle d'Aosta" e "Valle D'Aosta"); la forma
+	// restituita e' sempre quella canonica, cosi' i raggruppamenti non si
+	// spezzano in due.
+	bassoResto := strings.ToLower(resto)
 	for _, r := range regioniNote {
-		suffisso := " - " + r
-		if strings.HasSuffix(resto, suffisso) {
+		if suffisso := " - " + strings.ToLower(r); strings.HasSuffix(bassoResto, suffisso) {
 			regione = r
-			resto = strings.TrimSuffix(resto, suffisso)
+			resto = resto[:len(resto)-len(suffisso)]
+			break
+		}
+		if prefisso := strings.ToLower(r) + " - "; strings.HasPrefix(bassoResto, prefisso) {
+			regione = r
+			resto = resto[len(prefisso):]
 			break
 		}
 	}
@@ -337,6 +350,14 @@ func leggiDataset(db *store.Store) ([]dataset, error) {
 			// comando locale mentre il conteggio continua a dirsi completo.
 			illeggibili++
 			continue
+		}
+		// I campi derivati si ricalcolano a ogni lettura: sono ricavati dal
+		// titolo e dal nome, quindi costano poco, e un archivio allineato
+		// prima di un miglioramento del riconoscimento resta valido senza
+		// doverlo riscaricare.
+		d.Anno, d.Periodo, d.Regione, d.Serie = derivaSerie(d.Titolo)
+		if m := reMopNome.FindStringSubmatch(d.Nome); m != nil {
+			d.Famiglia = famiglieMOP[m[1]]
 		}
 		fuori = append(fuori, d)
 	}
