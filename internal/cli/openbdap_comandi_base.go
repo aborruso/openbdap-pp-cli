@@ -134,7 +134,11 @@ func newAllineaCmd(flags *rootFlags) *cobra.Command {
 			if cliutil.IsDogfoodEnv() && len(ids) > 5 {
 				ids = ids[:5]
 			}
-			db, err := store.OpenWithContext(ctx, percorsoArchivio(cmd, dbPath))
+			// Il percorso si risolve una volta sola e poi si usa ovunque,
+			// output compreso: dire di aver scritto in un posto diverso da
+			// quello vero e' peggio che non dirlo affatto.
+			archivio := percorsoArchivio(cmd, dbPath)
+			db, err := store.OpenWithContext(ctx, archivio)
 			if err != nil {
 				return err
 			}
@@ -157,7 +161,7 @@ func newAllineaCmd(flags *rootFlags) *cobra.Command {
 			esito := map[string]any{
 				"dataset_allineati": contati,
 				"dataset_richiesti": len(ids),
-				"archivio":          dbPath,
+				"archivio":          archivio,
 				"durata":            esitoTempo.String(),
 			}
 			if len(errori) > 0 {
@@ -185,7 +189,7 @@ func newAllineaCmd(flags *rootFlags) *cobra.Command {
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), esito, flags)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Allineati %d dataset su %d in %s\n", contati, len(ids), dbPath)
+			fmt.Fprintf(cmd.OutOrStdout(), "Allineati %d dataset su %d in %s\n", contati, len(ids), archivio)
 			return nil
 		},
 	}

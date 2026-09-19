@@ -210,8 +210,9 @@ func (l *lettoreUTF8) Read(p []byte) (int, error) {
 		l.avanzo = l.avanzo[n:]
 		return n, nil
 	}
+	soloASCII := -1
 	if l.codifica == codificaSconosciuta {
-		l.decidi()
+		soloASCII = l.decidi()
 	}
 	if l.codifica == codificaUTF8 {
 		return l.src.Read(p)
@@ -221,6 +222,15 @@ func (l *lettoreUTF8) Read(p []byte) (int, error) {
 	massimo := len(p) / 2
 	if massimo < 1 {
 		massimo = 1
+	}
+	// Decisione rimandata: si consumano solo i byte ASCII gia' certi, sui
+	// quali la conversione e' l'identita'. Alla lettura successiva il buffer
+	// si e' riempito e la sequenza a cavallo del taglio si legge intera.
+	if l.codifica == codificaSconosciuta && soloASCII >= 0 && soloASCII < massimo {
+		massimo = soloASCII
+		if massimo < 1 {
+			massimo = 1
+		}
 	}
 	if len(l.ingresso) < massimo {
 		l.ingresso = make([]byte, massimo)
@@ -252,23 +262,75 @@ func (l *lettoreUTF8) Read(p []byte) (int, error) {
 	return 0, err
 }
 
-// decidi guarda avanti nel flusso senza consumarlo. Se non trova byte alti
-// lascia la decisione alla lettura successiva.
-func (l *lettoreUTF8) decidi() {
-	prefisso, _ := l.src.Peek(l.src.Size())
+// decidi guarda avanti nel flusso senza consumarlo e restituisce quanti byte
+// iniziali sono ASCII, cioe' quanti se ne possono scrivere comunque mentre la
+// decisione resta aperta. Restituisce -1 quando la codifica e' decisa.
+//
+// La decisione guarda tutto il blocco, non il primo carattere accentato: un
+// dump latin-1 contiene quasi sempre una sequenza che in UTF-8 non sta in
+// piedi, mentre un singolo byte alto puo' somigliare per caso a una sequenza
+// valida. Una sequenza tagliata in fondo al buffer non e' una sequenza
+// invalida, quindi non decide: si consuma l'ASCII che la precede e si torna a
+// guardare con il buffer riempito.
+func (l *lettoreUTF8) decidi() int {
+	prefisso, err := l.src.Peek(l.src.Size())
+	primoAlto := -1
 	for i, b := range prefisso {
-		if b < 0x80 {
+		if b >= 0x80 {
+			primoAlto = i
+			break
+		}
+	}
+	if primoAlto < 0 {
+		// Finora solo ASCII: la conversione e' l'identita', si va avanti.
+		return len(prefisso)
+	}
+	fine := len(prefisso)
+	if err == nil {
+		// Il buffer e' pieno: il flusso continua oltre, quindi l'ultima
+		// sequenza puo' essere tagliata a meta'.
+		fine = tagliaRuneIncompleta(prefisso)
+		if fine <= primoAlto {
+			return primoAlto
+		}
+	}
+	if utf8.Valid(prefisso[:fine]) {
+		l.codifica = codificaUTF8
+	} else {
+		l.codifica = codificaLatin1
+	}
+	return -1
+}
+
+// tagliaRuneIncompleta restituisce la lunghezza del blocco togliendo una
+// eventuale sequenza UTF-8 iniziata e non conclusa in coda.
+func tagliaRuneIncompleta(blocco []byte) int {
+	for i := len(blocco) - 1; i >= 0 && i >= len(blocco)-3; i-- {
+		b := blocco[i]
+		if b&0xC0 == 0x80 {
+			// Byte di continuazione: si risale all'inizio della sequenza.
 			continue
 		}
-		fine := i + 4
-		if fine > len(prefisso) {
-			fine = len(prefisso)
+		if b < 0x80 {
+			// Carattere ASCII: la coda e' completa.
+			return len(blocco)
 		}
-		if r, _ := utf8.DecodeRune(prefisso[i:fine]); r == utf8.RuneError {
-			l.codifica = codificaLatin1
-		} else {
-			l.codifica = codificaUTF8
+		var attesa int
+		switch {
+		case b&0xE0 == 0xC0:
+			attesa = 2
+		case b&0xF0 == 0xE0:
+			attesa = 3
+		case b&0xF8 == 0xF0:
+			attesa = 4
+		default:
+			// Byte di partenza non valido: non e' una sequenza tagliata.
+			return len(blocco)
 		}
-		return
+		if len(blocco)-i < attesa {
+			return i
+		}
+		return len(blocco)
 	}
+	return len(blocco)
 }
