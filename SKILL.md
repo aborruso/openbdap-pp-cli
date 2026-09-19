@@ -55,7 +55,7 @@ Do not use this CLI for:
 These capabilities aren't available in any other tool for this API.
 
 ### Opere pubbliche trasversali
-- **`dossier`** — Il quadro completo di un'opera pubblica a partire dal CUP: progetto, pagamenti, gare, partecipanti, piano dei costi e soggetti titolari.
+- **`dossier`** — Il quadro completo di un'opera pubblica a partire dal CUP: progetto, localizzazione geografica, pagamenti, gare, partecipanti, piano dei costi e soggetti titolari.
 
   _Usalo quando ti serve tutto su un'opera e hai solo il CUP, invece di cinque chiamate OData con filtri diversi._
 
@@ -147,7 +147,7 @@ These capabilities aren't available in any other tool for this API.
 
 **scarica** — Scaricamento integrale dei dataset in CSV
 
-- `openbdap-pp-cli scarica <id>` — Scarica l'intero dataset in CSV (separatore punto e virgola)
+- `openbdap-pp-cli scarica <id>` — Scarica l'intero dataset in CSV (separatore punto e virgola, convertito in UTF-8; --raw per i byte originali)
 
 **tag** — Parole chiave del catalogo
 
