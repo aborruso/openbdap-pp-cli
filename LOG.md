@@ -11,3 +11,5 @@
 - `scarica`: il dump esce in UTF-8, con `--raw` per i byte del portale. La codifica si decide al primo byte non ASCII, quindi un flusso gia' UTF-8 passa intatto.
 - `archivio_vuoto: true` accanto alla nota, per separare "il codice non c'e'" da "non ho un archivio in cui cercarlo".
 - `--home` sposta anche l'archivio: il percorso si risolve all'uso, non alla costruzione del comando.
+- `sync`: `catalogo-package-search` dichiarato paginato con `start` e `rows`. Lo switch generato era vuoto: il sync si fermava alla prima pagina e dichiarava `success` con 20 record su 43 (`q=comuni`), senza errore ne' avviso.
+- Collaudo dal vivo: 246 test, nessuno fallito. PR verso il catalogo pubblico: mvanhorn/printing-press-library#2023.
