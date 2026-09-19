@@ -33,9 +33,9 @@ var whichIndex = []whichEntry{
 	{Command: "campi", Description: "In quali dataset esiste un campo, con l'identificativo pronto da usare nei filtri.", Group: "Catalogo che si capisce", WhyItMatters: "Usalo quando sai quale campo ti serve ma non in quale dataset vive."},
 	{Command: "mop", Description: "Quale dataset MOP interrogare per ogni regione e ruolo, con il relativo identificativo OData.", Group: "Opere pubbliche trasversali", WhyItMatters: "Usalo prima di una ricerca mirata sulle opere pubbliche, per sapere dove cercare."},
 	{Command: "cig", Description: "La gara e i partecipanti a partire dal codice CIG.", Group: "Opere pubbliche trasversali", WhyItMatters: "Usalo quando parti da un CIG invece che da un CUP."},
-	{Command: "licenze", Description: "Elenca le licenze", Group: "licenze", WhyItMatters: "Elenca le licenze"}, // pp:which-promoted
+	{Command: "licenze", Description: "Elenca le licenze", Group: "licenze", WhyItMatters: "Elenca le licenze"},                                                                                       // pp:which-promoted
 	{Command: "scarica", Description: "Scarica l'intero dataset in CSV (separatore punto e virgola)", Group: "scarica", WhyItMatters: "Scarica l'intero dataset in CSV (separatore punto e virgola)"}, // pp:which-promoted
-	{Command: "tag", Description: "Elenca le parole chiave", Group: "tag", WhyItMatters: "Elenca le parole chiave"}, // pp:which-promoted
+	{Command: "tag", Description: "Elenca le parole chiave", Group: "tag", WhyItMatters: "Elenca le parole chiave"},                                                                                   // pp:which-promoted
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
