@@ -13,3 +13,8 @@
 - `--home` sposta anche l'archivio: il percorso si risolve all'uso, non alla costruzione del comando.
 - `sync`: `catalogo-package-search` dichiarato paginato con `start` e `rows`. Lo switch generato era vuoto: il sync si fermava alla prima pagina e dichiarava `success` con 20 record su 43 (`q=comuni`), senza errore ne' avviso.
 - Collaudo dal vivo: 246 test, nessuno fallito. PR verso il catalogo pubblico: mvanhorn/printing-press-library#2023.
+- Review: due rilievi, entrambi fondati e corretti. La codifica di `scarica` si decide sul blocco intero e non sul primo byte alto, e una sequenza tagliata dal bordo del buffer non decide (prima un dump gia' UTF-8 con il primo accento negli ultimi byte veniva riconvertito). `allinea` riporta il percorso dell'archivio risolto, non il default calcolato alla costruzione del comando.
+
+## 2026-09-20
+
+- PR #2023 mergiata. Release `2026.9.2` nel catalogo pubblico; `CHANGELOG.md` e `.printing-press-release.json` riportati nel sorgente per tenere vuoto il confronto con il pubblicato.
