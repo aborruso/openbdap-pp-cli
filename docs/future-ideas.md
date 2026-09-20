@@ -23,3 +23,7 @@ Quindi l'indice nome -> codice conviene costruirlo dal dataset di localizzazione
 Da ISTAT serve una cosa sola: ricondurre i comuni estinti al successore, cioe' trovare anche le righe di Pecco quando si chiede Valchiusa. Sono i report SITUAS 99 (traslazione data inizio - data fine) e 128 (soppressi e non ricostituiti). Il 4,41% di righe e' oltre la soglia dell'assicurazione.
 
 Vincoli se si fa: niente chiamata a `opensituas` a runtime, che e' Python mentre questa e' un binario Go che deve funzionare offline, quindi file generato una volta e committato; e file embeddato con `go:embed` invece di una tabella nuova nell'archivio, perche' lo schema dello store e' a senso unico e non vale un bump per una tabella di lookup statica.
+
+## Esempi per giornalisti
+
+Spostati in `docs/esempi-giornalisti.md`: sono comandi verificati, non idee da fare, e in un file di idee si perdevano. Coprono cosa c'e' dentro MOP famiglia per famiglia, le opere di un comune, la scheda di un CUP, le classifiche per ente con DuckDB, le opere ferme, le gare dal CIG e il conteggio per codice fiscale.
