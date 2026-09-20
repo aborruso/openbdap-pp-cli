@@ -195,6 +195,32 @@ These capabilities aren't available in any other tool for this API.
   openbdap-pp-cli campi "codice fiscale" --agent
   ```
 
+## Cosa c'e' dentro MOP
+
+Buona parte dei comandi di questa CLI lavora sul Monitoraggio Opere Pubbliche, che e' la fetta piu' ricca del catalogo. Vale la pena sapere cosa contiene prima di cercarci dentro.
+
+Il monitoraggio nasce dal [d.lgs. 229/2011](https://www.rgs.mef.gov.it/VERSIONE-I/attivita_istituzionali/monitoraggio/spesa_per_le_opere_pubbliche/): chi realizza un'opera pubblica e' tenuto a trasmettere alla BDAP l'anagrafica, i dati finanziari e l'avanzamento. Il perno e' il legame fra il CUP, che identifica il progetto, e il CIG, che identifica la gara: l'ANAC non rilascia un CIG senza un CUP valido, e quel legame tiene insieme le due meta' del ciclo di vita dell'opera. Gli enti non reinviano cio' che hanno gia' dato altrove: i dati confluiscono dal sistema CUP, da ANAC, da SIOPE e dalla Banca Dati Unitaria.
+
+Nel catalogo open data quel patrimonio esce come sette famiglie di dataset. Sei sono pubblicate per regione, una e' nazionale. `openbdap-pp-cli mop` dice quale dataset interrogare per ogni combinazione di regione e famiglia.
+
+| famiglia | cosa contiene |
+|---|---|
+| `progetti` | anagrafica del CUP, titolare e codice fiscale, settore, sottosettore, tipologia d'intervento, stato, quadro economico previsto ed effettivo, finanziamenti per fonte, date di progettazione, esecuzione e funzionalita' |
+| `gare` | CIG, oggetto, tipo di procedura, data, importo a base d'asta e di aggiudicazione, numero di partecipanti |
+| `partecipanti` | chi ha partecipato a ogni gara, mandatario e mandanti con codice fiscale |
+| `pagamenti` | importo pagato per CUP e per anno |
+| `piano-costi` | importo da realizzare e importo realizzato per CUP e per anno |
+| `soggetti-titolari` | titolare del CUP con forma giuridica e comune di sede |
+| `localizzazione` | dove ricade l'opera: regione, provincia e comune ISTAT. Dataset nazionale, non partizionato |
+
+Ordine di grandezza, sulla sola Sicilia al 20 settembre 2026: 27.733 progetti, 52.162 gare, 27.412 partecipanti, 43.618 pagamenti, 45.786 righe di piano dei costi.
+
+Tre cose che conviene sapere prima di trarre conclusioni:
+
+- **Circa meta' dei CUP non sta in MOP.** Un `trovati: 0` significa «non e' in questo archivio», non «non esiste».
+- **Un costo effettivo a zero non dice che l'opera e' ferma**, dice che in MOP non risulta speso nulla. E' una domanda da fare all'ente.
+- **Gli indicatori di avanzamento fisico non sono pubblicati.** Il servizio MOP li prevede (A17) e il form web li restituisce nel foglio «Dettaglio Indicatori», ma nel catalogo open data non hanno un dataset corrispondente. Stessa sorte per i singoli stati di avanzamento lavori, le varianti e le sospensioni.
+
 ## Recipes
 
 ### Allineare il catalogo prima di ogni ricerca offline
